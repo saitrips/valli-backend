@@ -3,7 +3,10 @@
  * Docs: https://docs.goshippo.com
  * Free tier: 30 labels/month, $0.05/label after.
  */
-const shippo = require('shippo')({
+const ShippoModule = require('shippo');
+const Shippo = ShippoModule.default || ShippoModule;
+
+const shippo = new Shippo({
   apiKey: process.env.SHIPPO_API_KEY || 'test'
 });
 /**
