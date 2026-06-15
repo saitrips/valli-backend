@@ -6,7 +6,7 @@
 const Shippo = require('shippo');
 
 const shippo = new Shippo({
-  apiKey: process.env.SHIPPO_API_KEY || 'shippo_test_0f9445369f51a973fee1955e64b18c8f6019c01e'
+  apiKey: process.env.SHIPPO_API_KEY
 });
 /**
  * Fetch live rates for a shipment.
