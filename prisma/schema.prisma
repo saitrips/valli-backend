@@ -1,0 +1,355 @@
+// Zoko CRM — Enterprise Data Model
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════ CORE ═══════════════
+
+model Business {
+  id              String   @id @default(uuid())
+  ownerId         String   @unique @map("owner_id") // Supabase auth user id
+  name            String
+  slug            String   @unique
+  logoUrl         String?  @map("logo_url")
+  whatsappNumber  String?  @map("whatsapp_number")
+  email           String?
+  currency        String   @default("USD")
+  upiId           String?  @map("upi_id")
+  zelleId         String?  @map("zelle_id")
+  venmoHandle     String?  @map("venmo_handle")
+  cashappHandle   String?  @map("cashapp_handle")
+  accentColor     String   @default("#1e6fd9") @map("accent_color")
+  heroMessage     String?  @map("hero_message")
+  shipFromName    String?  @map("ship_from_name")
+  shipFromStreet  String?  @map("ship_from_street")
+  shipFromCity    String?  @map("ship_from_city")
+  shipFromState   String?  @map("ship_from_state")
+  shipFromZip     String?  @map("ship_from_zip")
+  shipFromCountry String   @default("US") @map("ship_from_country")
+  freeShipThreshold Decimal? @map("free_ship_threshold") @db.Decimal(10, 2)
+  flatShipRate    Decimal? @map("flat_ship_rate") @db.Decimal(10, 2)
+  alertThresholdHours Int  @default(2) @map("alert_threshold_hours")
+  plan            Plan     @default(STARTER)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  customers  Customer[]
+  orders     Order[]
+  products   Product[]
+  templates  QuickReplyTemplate[]
+  events     AnalyticsEvent[]
+
+  @@map("businesses")
+}
+
+enum Plan {
+  STARTER
+  GROWTH
+  PRO
+}
+
+// ═══════════════ CUSTOMERS ═══════════════
+
+model Customer {
+  id           String   @id @default(uuid())
+  businessId   String   @map("business_id")
+  name         String
+  phone        String
+  email        String?
+  whatsappId   String?  @map("whatsapp_id")
+  instagramId  String?  @map("instagram_id")
+  totalOrders  Int      @default(0) @map("total_orders")
+  totalSpent   Decimal  @default(0) @map("total_spent") @db.Decimal(12, 2)
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders   Order[]
+  addresses CustomerAddress[]
+
+  @@unique([businessId, phone])
+  @@index([businessId])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String  @id @default(uuid())
+  customerId String  @map("customer_id")
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  zip        String
+  country    String  @default("US")
+  isDefault  Boolean @default(false) @map("is_default")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+// ═══════════════ CATALOGUE ═══════════════
+
+model Product {
+  id          String   @id @default(uuid())
+  businessId  String   @map("business_id")
+  name        String
+  description String?
+  category    String?
+  basePrice   Decimal  @map("base_price") @db.Decimal(10, 2)
+  compareAt   Decimal? @map("compare_at") @db.Decimal(10, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  photos   ProductPhoto[]
+  variants ProductVariant[]
+
+  @@index([businessId, isActive])
+  @@map("products")
+}
+
+model ProductPhoto {
+  id        String @id @default(uuid())
+  productId String @map("product_id")
+  url       String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_photos")
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid())
+  productId     String   @map("product_id")
+  sizeLabel     String?  @map("size_label")
+  colourLabel   String?  @map("colour_label")
+  colourHex     String?  @map("colour_hex")
+  sku           String?
+  priceOverride Decimal? @map("price_override") @db.Decimal(10, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory  Inventory?
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ═══════════════ INVENTORY ═══════════════
+
+model Inventory {
+  id                String @id @default(uuid())
+  variantId         String @unique @map("variant_id")
+  inStock           Int    @default(0) @map("in_stock")
+  reserved          Int    @default(0)
+  lowStockThreshold Int    @default(3) @map("low_stock_threshold")
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  logs    InventoryLog[]
+
+  @@map("inventory")
+}
+
+model InventoryLog {
+  id          String          @id @default(uuid())
+  inventoryId String          @map("inventory_id")
+  change      Int
+  reason      InventoryReason
+  orderId     String?         @map("order_id")
+  note        String?
+  loggedAt    DateTime        @default(now()) @map("logged_at")
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId])
+  @@map("inventory_logs")
+}
+
+enum InventoryReason {
+  SALE
+  RESTOCK
+  ADJUSTMENT
+  RETURN
+  DAMAGED
+  RESERVATION
+  RELEASE
+}
+
+// ═══════════════ ORDERS ═══════════════
+
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String      @unique @map("order_number")
+  businessId  String      @map("business_id")
+  customerId  String      @map("customer_id")
+  addressId   String?     @map("address_id")
+  source      OrderSource @default(CHECKOUT)
+  status      OrderStatus @default(NEW)
+  subtotal    Decimal     @db.Decimal(12, 2)
+  shippingFee Decimal     @default(0) @map("shipping_fee") @db.Decimal(10, 2)
+  total       Decimal     @db.Decimal(12, 2)
+  notes       String?
+  internalNote String?    @map("internal_note")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  business      Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer      Customer             @relation(fields: [customerId], references: [id])
+  address       CustomerAddress?     @relation(fields: [addressId], references: [id])
+  items         OrderItem[]
+  payments      Payment[]
+  shipment      Shipment?
+  statusHistory OrderStatusHistory[]
+
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+  @@map("orders")
+}
+
+enum OrderSource {
+  CHECKOUT
+  WHATSAPP
+  INSTAGRAM
+  WALKIN
+  PHONE
+}
+
+enum OrderStatus {
+  NEW
+  AWAITING_PAYMENT
+  PAYMENT_CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model OrderItem {
+  id           String  @id @default(uuid())
+  orderId      String  @map("order_id")
+  variantId    String? @map("variant_id")
+  productName  String  @map("product_name") // snapshot
+  variantLabel String? @map("variant_label")
+  quantity     Int
+  unitPrice    Decimal @map("unit_price") @db.Decimal(10, 2)
+  lineTotal    Decimal @map("line_total") @db.Decimal(12, 2)
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id         String      @id @default(uuid())
+  orderId    String      @map("order_id")
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus @map("to_status")
+  note       String?
+  changedAt  DateTime    @default(now()) @map("changed_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+// ═══════════════ PAYMENTS ═══════════════
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @map("order_id")
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod
+  reference     String?
+  screenshotUrl String?       @map("screenshot_url")
+  confirmedAt   DateTime?     @map("confirmed_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  ZELLE
+  VENMO
+  CASHAPP
+  UPI
+  BANK_TRANSFER
+  CASH
+  CARD
+  OTHER
+}
+
+// ═══════════════ SHIPPING ═══════════════
+
+model Shipment {
+  id             String    @id @default(uuid())
+  orderId        String    @unique @map("order_id")
+  carrier        String
+  service        String
+  rateAmount     Decimal   @map("rate_amount") @db.Decimal(10, 2)
+  trackingNumber String?   @map("tracking_number")
+  labelUrl       String?   @map("label_url")
+  shippoObjectId String?   @map("shippo_object_id")
+  weightLbs      Decimal?  @map("weight_lbs") @db.Decimal(6, 2)
+  lengthIn       Int?      @map("length_in")
+  widthIn        Int?      @map("width_in")
+  heightIn       Int?      @map("height_in")
+  shippedAt      DateTime? @map("shipped_at")
+  deliveredAt    DateTime? @map("delivered_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("shipments")
+}
+
+// ═══════════════ MESSAGING ═══════════════
+
+model QuickReplyTemplate {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  name       String
+  body       String
+  mediaUrl   String?  @map("media_url")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("quick_reply_templates")
+}
+
+// ═══════════════ ANALYTICS ═══════════════
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  eventType  String   @map("event_type") // checkout_view, add_to_cart, order_placed, etc
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, eventType, createdAt])
+  @@map("analytics_events")
+}
