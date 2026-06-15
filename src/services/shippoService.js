@@ -3,8 +3,11 @@
  * Docs: https://docs.goshippo.com
  * Free tier: 30 labels/month, $0.05/label after.
  */
-const shippo = require('shippo')(process.env.SHIPPO_API_KEY || 'shippo_test_placeholder');
-
+// NEW (fixed):
+const Shippo = require('shippo');
+const shippo = new Shippo({
+  apiKey: process.env.SHIPPO_API_KEY || 'shippo_test_0f9445369f51a973fee1955e64b18c8f6019c01e'
+});
 /**
  * Fetch live rates for a shipment.
  * Returns normalized rate objects sorted by price.
