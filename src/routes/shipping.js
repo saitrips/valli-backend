@@ -26,9 +26,9 @@ router.post('/rates', async (req, res, next) => {
         length: String(body.lengthIn),
         width: String(body.widthIn),
         height: String(body.heightIn),
-        distance_unit: 'in',
+        distanceUnit: 'in',
         weight: String(body.weightLbs),
-        mass_unit: 'lb',
+        massUnit: 'lb',
       },
     });
 

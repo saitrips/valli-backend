@@ -3,20 +3,19 @@
  * Docs: https://docs.goshippo.com
  * Free tier: 30 labels/month, $0.05/label after.
  */
-const ShippoModule = require('shippo');
-const Shippo = ShippoModule.default || ShippoModule;
+const { Shippo } = require('shippo');
 
 const shippo = new Shippo({
-  apiKey: process.env.SHIPPO_API_KEY || 'test'
+  apiKeyHeader: process.env.SHIPPO_API_KEY || 'test'
 });
 /**
  * Fetch live rates for a shipment.
  * Returns normalized rate objects sorted by price.
  */
 async function getRates({ fromAddress, toAddress, parcel }) {
-  const shipment = await shippo.shipment.create({
-    address_from: fromAddress,
-    address_to: toAddress,
+  const shipment = await shippo.shipments.create({
+    addressFrom: fromAddress,
+    addressTo: toAddress,
     parcels: [parcel],
     async: false,
   });
@@ -24,18 +23,18 @@ async function getRates({ fromAddress, toAddress, parcel }) {
   const rates = (shipment.rates || [])
     .filter(r => r.amount && r.servicelevel)
     .map(r => ({
-      rateObjectId: r.object_id,
+      rateObjectId: r.objectId,
       carrier: r.provider,
       service: r.servicelevel.name,
       amount: parseFloat(r.amount),
       currency: r.currency,
-      estimatedDays: r.estimated_days,
-      durationTerms: r.duration_terms,
+      estimatedDays: r.estimatedDays,
+      durationTerms: r.durationTerms,
       attributes: r.attributes || [], // CHEAPEST | FASTEST | BESTVALUE
     }))
     .sort((a, b) => a.amount - b.amount);
 
-  return { shipmentObjectId: shipment.object_id, rates };
+  return { shipmentObjectId: shipment.objectId, rates };
 }
 
 /**
@@ -43,9 +42,9 @@ async function getRates({ fromAddress, toAddress, parcel }) {
  * Returns tracking number + label PDF URL.
  */
 async function buyLabel(rateObjectId) {
-  const transaction = await shippo.transaction.create({
+  const transaction = await shippo.transactions.create({
     rate: rateObjectId,
-    label_file_type: 'PDF_4x6',
+    labelFileType: 'PDF_4x6',
     async: false,
   });
 
@@ -56,10 +55,10 @@ async function buyLabel(rateObjectId) {
   }
 
   return {
-    trackingNumber: transaction.tracking_number,
-    trackingUrl: transaction.tracking_url_provider,
-    labelUrl: transaction.label_url,
-    shippoObjectId: transaction.object_id,
+    trackingNumber: transaction.trackingNumber,
+    trackingUrl: transaction.trackingUrlProvider,
+    labelUrl: transaction.labelUrl,
+    shippoObjectId: transaction.objectId,
   };
 }
 
